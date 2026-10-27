@@ -1,0 +1,29 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+*.csv
+.ipynb_checkpoints/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Data and Python artifacts
+*.csv
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+.DS_Store
+
+# Local research data and backups
+research/data/.tranco/
+research/data/d3.sqlite
+*.sqlite
+*.bak

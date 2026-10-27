@@ -1,0 +1,495 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b1017">
+<title>PhisGuard — URL Threat Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #0b1017;
+  --panel: #111923;
+  --card: #151f2c;
+  --line: #263447;
+  --text: #edf3fb;
+  --muted: #91a0b3;
+  --blue: #83adff;
+  --green: #56d6a0;
+  --amber: #f4bd62;
+  --red: #ff827c;
+  --mono: "DM Mono", monospace;
+  --body: "DM Sans", sans-serif;
+  --display: "Manrope", sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background:
+    radial-gradient(ellipse at 15% 0%, #14243a 0, transparent 42%),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 14px;
+  line-height: 1.6;
+}
+button, input { font: inherit; }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+.wrap { max-width: 1120px; margin: auto; padding: 38px 24px 64px; }
+header { margin-bottom: 26px; }
+.brandline { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+.logo {
+  display: grid; place-items: center; width: 35px; height: 35px;
+  border: 1px solid #375277; border-radius: 10px;
+  color: var(--blue); background: #14243a; font-size: 19px;
+}
+.eyebrow { font: 500 11px var(--mono); letter-spacing: .14em; color: var(--blue); }
+h1 { font: 800 clamp(29px, 4vw, 43px)/1.15 var(--display); letter-spacing: -.04em; margin: 0 0 12px; }
+h1 span { color: var(--blue); }
+.dek { color: var(--muted); max-width: 700px; font-size: 15px; margin: 0; }
+.panel {
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  border: 1px solid var(--line); border-radius: 15px;
+  padding: 22px; margin-bottom: 17px; min-width: 0;
+}
+.section-title {
+  font: 500 11px var(--mono); letter-spacing: .12em;
+  text-transform: uppercase; color: var(--muted); margin: 0 0 17px;
+}
+.scan-row { display: flex; gap: 10px; }
+#url {
+  flex: 1; min-width: 0; padding: 14px 15px;
+  color: var(--text); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 9px;
+  font: 13px var(--mono);
+}
+#url:focus { border-color: var(--blue); outline: none; }
+#go {
+  min-width: 112px; border: 0; border-radius: 9px;
+  background: var(--blue); color: #091321;
+  font-weight: 700; padding: 0 20px;
+}
+#go:disabled { opacity: .65; cursor: wait; }
+.scan-options {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 9px;
+  color: var(--muted); font-size: 13px; margin-top: 14px;
+}
+input[type=checkbox] { accent-color: var(--blue); width: 16px; height: 16px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.chip {
+  color: #b6c7dd; background: #172333; border: 1px solid var(--line);
+  padding: 7px 11px; border-radius: 8px; font: 11px var(--mono);
+}
+.chip:hover { border-color: var(--blue); color: white; }
+#error, #loading { display: none; margin-top: 14px; padding: 12px 14px; border-radius: 9px; }
+#error { color: var(--red); background: #301b23; border: 1px solid #58303a; }
+#loading { color: var(--blue); background: #17283e; }
+#loading.active { display: flex; align-items: center; gap: 10px; }
+.spinner {
+  width: 15px; height: 15px; border: 2px solid #536783;
+  border-top-color: var(--blue); border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#result { display: none; }
+#result.visible { display: block; }
+.summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.metric-card {
+  min-width: 0; padding: 23px; border: 1px solid var(--line);
+  background: var(--panel); border-radius: 15px;
+}
+.metric-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.metric-name { color: var(--muted); font: 11px var(--mono); letter-spacing: .09em; }
+.iconbox {
+  display: grid; place-items: center; width: 32px; height: 32px;
+  border: 1px solid var(--line); border-radius: 9px; color: var(--blue);
+}
+.metric-value { font: 800 clamp(26px, 3.4vw, 37px)/1.25 var(--display); margin-top: 14px; overflow-wrap: anywhere; }
+.metric-help { color: var(--muted); font-size: 12px; margin-top: 6px; }
+.meter { height: 7px; background: #273343; border-radius: 20px; margin-top: 18px; overflow: hidden; }
+.meter-fill { height: 100%; width: 0; background: var(--blue); border-radius: inherit; transition: width .35s ease; }
+.meter-labels { display: flex; justify-content: space-between; color: var(--muted); font: 10px var(--mono); margin-top: 7px; }
+.badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 1px solid currentColor; border-radius: 7px;
+  padding: 7px 10px; font: 600 11px var(--mono); letter-spacing: .04em;
+}
+.l0 { color: var(--green); background: #122b27; }
+.l1 { color: var(--amber); background: #30271a; }
+.l2 { color: var(--red); background: #321f26; }
+.neutral { color: var(--muted); background: #1a2532; }
+.explain { margin-top: 13px; padding: 12px; border-radius: 9px; background: #0d151f; color: var(--muted); font-size: 12px; }
+.verdict-layout { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+#verdictText { font: 700 25px var(--display); margin: 0 0 8px; }
+#verdictText.l0 { color: var(--green); background: none; }
+#verdictText.l1 { color: var(--amber); background: none; }
+#verdictText.l2 { color: var(--red); background: none; }
+#verdictText.neutral { color: var(--muted); background: none; }
+.reason-list { padding-left: 20px; margin: 0; }
+.reason-list li { padding: 3px 0; overflow-wrap: anywhere; }
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
+.card h3 { margin: 0 0 13px; color: var(--blue); font: 500 11px var(--mono); letter-spacing: .08em; }
+.card-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #253143; }
+.card-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.card-key { color: var(--muted); flex-shrink: 0; }
+.card-value { text-align: right; overflow-wrap: anywhere; }
+.card-note { color: var(--muted); font-size: 12px; margin-top: 12px; }
+.status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); margin-right: 5px; }
+details summary { cursor: pointer; color: var(--blue); font: 12px var(--mono); }
+details summary:hover { color: white; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font: 12px var(--mono); margin-top: 14px; }
+td, th { padding: 9px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+th { color: var(--muted); font-weight: 400; }
+td:last-child, th:last-child { text-align: right; }
+.timing { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
+.timing span { color: var(--muted); background: #0d151f; border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; font: 11px var(--mono); }
+.note { color: var(--muted); font-size: 12px; line-height: 1.8; margin-top: 28px; }
+.footer-line { border-top: 1px solid var(--line); margin-top: 25px; padding-top: 16px; color: #68788c; font: 10px var(--mono); }
+@media (max-width: 720px) {
+  .wrap { padding: 25px 15px 40px; }
+  .panel, .metric-card { padding: 17px; }
+  .summary-grid { grid-template-columns: 1fr; }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 460px) {
+  .scan-row { flex-direction: column; }
+  #url { min-height: 48px; }
+  #go { min-height: 46px; }
+  .grid { grid-template-columns: 1fr; }
+  .metric-value { font-size: 29px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brandline">
+      <div class="logo" aria-hidden="true">⌁</div>
+      <div class="eyebrow">PHISGUARD / URL INTELLIGENCE</div>
+    </div>
+    <h1>Know before you <span>open.</span></h1>
+    <p class="dek">Analyze a URL using lexical machine learning, domain intelligence and reputation evidence. PhisGuard does not open the destination webpage.</p>
+  </header>
+
+  <section class="panel" aria-labelledby="scanTitle">
+    <h2 class="section-title" id="scanTitle">01 / Scan a URL</h2>
+    <form id="scanForm">
+      <div class="scan-row">
+        <input id="url" type="text" placeholder="https://example.com/login" autocomplete="off" spellcheck="false" aria-label="URL to scan" required>
+        <button id="go" type="submit">Scan URL →</button>
+      </div>
+    </form>
+    <label class="scan-options">
+      <input type="checkbox" id="deep" checked>
+      <span><strong>Deep scan</strong> — DNS, WHOIS and VirusTotal</span>
+    </label>
+    <div class="chips" aria-label="Example URLs">
+      <button type="button" class="chip" data-u="https://www.google.com">Google example</button>
+      <button type="button" class="chip" data-u="http://paypal-secure-login.verify-account.xyz/update?redirect=1&amp;token=88a1">Lookalike-style example</button>
+      <button type="button" class="chip" data-u="http://192.168.4.22/secure/login.php">Raw IP example</button>
+      <button type="button" class="chip" data-u="http://bit-link.net/go?url=%68%74%74%70%3A%2F%2Fexample.com&amp;id=93">Encoded URL example</button>
+    </div>
+    <div id="error" role="alert"></div>
+    <div id="loading" role="status" aria-live="polite"><span class="spinner"></span><span id="loadingText">Analyzing URL signals…</span></div>
+  </section>
+
+  <main id="result" aria-live="polite">
+    <div class="summary-grid">
+      <section class="metric-card">
+        <div class="metric-heading">
+          <div class="metric-name">MODEL OUTPUT / 01</div>
+          <span class="iconbox" aria-hidden="true">◎</span>
+        </div>
+        <div class="metric-value" id="prob">—</div>
+        <div class="metric-help">Model-estimated phishing probability</div>
+        <div class="meter"><div class="meter-fill" id="mlBar"></div></div>
+        <div class="meter-labels"><span>0%</span><span>100%</span></div>
+        <div class="explain">Based on the URL's lexical features. This is the model score, not the final verdict.</div>
+      </section>
+
+      <section class="metric-card">
+        <div class="metric-heading">
+          <div class="metric-name">POLICY DECISION / 02</div>
+          <span class="iconbox" aria-hidden="true">⬡</span>
+        </div>
+        <div id="verdictText" class="neutral">Awaiting scan</div>
+        <span id="badge" class="badge neutral">NOT SCANNED</span>
+        <div class="metric-help" id="verdictHelp">The policy verdict appears here after scanning.</div>
+        <div class="explain">The final verdict can differ from the ML score when other security signals indicate risk.</div>
+      </section>
+    </div>
+
+    <section class="panel" style="margin-top:16px">
+      <div class="verdict-layout">
+        <div>
+          <h2 class="section-title">03 / Scan summary</h2>
+          <div class="metric-help">URL analyzed</div>
+          <p class="url" id="shown"></p>
+        </div>
+        <div>
+          <div class="metric-help">Configured ML threshold</div>
+          <div id="thresholdValue" style="font:500 16px var(--mono);margin-top:5px">—</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">04 / Why this verdict?</h2>
+      <ul class="reason-list" id="reasons"></ul>
+      <p id="scanNote" class="card-note" hidden></p>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">05 / Evidence sources</h2>
+      <div class="grid" id="signals"></div>
+      <p class="card-note">Unavailable evidence is shown as unavailable, not as proof that a URL is malicious or safe.</p>
+    </section>
+
+    <section class="panel">
+      <details>
+        <summary>Inspect the 18 lexical features used by the model</summary>
+        <p class="card-note">These values describe the URL structure supplied to the model.</p>
+        <div class="table-wrap"><table id="feat"></table></div>
+      </details>
+      <div class="timing" id="timing"></div>
+    </section>
+  </main>
+
+  <p class="note">PhisGuard provides decision support, not a guarantee. The destination page is not opened by this scan. Deep scans send domain queries to DNS/WHOIS services and submit URL reputation lookups to VirusTotal. Only share URLs you are authorized to analyze.</p>
+  <div class="footer-line">PHISGUARD · HYBRID URL TRIAGE · ML + DOMAIN EVIDENCE</div>
+</div>
+
+<script>
+const $ = selector => document.querySelector(selector);
+
+function makeEl(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined && text !== null) node.textContent = String(text);
+  return node;
+}
+
+document.querySelectorAll('.chip').forEach(button => {
+  button.addEventListener('click', () => {
+    $('#url').value = button.dataset.u;
+    $('#url').focus();
+  });
+});
+
+$('#scanForm').addEventListener('submit', event => {
+  event.preventDefault();
+  scan();
+});
+
+function setLoading(active, message = 'Analyzing URL signals…') {
+  $('#go').disabled = active;
+  $('#go').textContent = active ? 'Scanning…' : 'Scan URL →';
+  $('#loading').classList.toggle('active', active);
+  $('#loadingText').textContent = message;
+}
+
+async function scan() {
+  const url = $('#url').value.trim();
+  if (!url) {
+    $('#url').focus();
+    return;
+  }
+
+  $('#error').style.display = 'none';
+  setLoading(true, $('#deep').checked
+    ? 'Analyzing URL and checking external evidence…'
+    : 'Analyzing URL features with the ML model…');
+
+  try {
+    const response = await fetch('/api/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, deep: $('#deep').checked })
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      const detail = typeof data.detail === 'string'
+        ? data.detail
+        : `Request failed (HTTP ${response.status})`;
+      throw new Error(detail);
+    }
+
+    render(data);
+    $('#result').classList.add('visible');
+  } catch (error) {
+    const box = $('#error');
+    box.textContent = error instanceof TypeError
+      ? 'Could not reach the PhisGuard API. Check that the backend is running and reload this page from the backend address.'
+      : (error.message || 'Scan failed. Please try again.');
+    box.style.display = 'block';
+  } finally {
+    setLoading(false);
+  }
+}
+
+function addCard(title, rows, note) {
+  const card = makeEl('article', 'card');
+  card.appendChild(makeEl('h3', null, title));
+
+  rows.forEach(([key, value]) => {
+    const row = makeEl('div', 'card-row');
+    row.appendChild(makeEl('span', 'card-key', key));
+    row.appendChild(makeEl('span', 'card-value', value ?? 'Unavailable'));
+    card.appendChild(row);
+  });
+
+  if (note) card.appendChild(makeEl('p', 'card-note', note));
+  $('#signals').appendChild(card);
+}
+
+function showValue(value) {
+  if (value === undefined || value === null || value === '') return 'Unavailable';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function render(data) {
+  const probability = Number(data.probability);
+  const validProbability = Number.isFinite(probability)
+    ? Math.min(1, Math.max(0, probability))
+    : null;
+
+  $('#prob').textContent = validProbability === null
+    ? 'Unavailable'
+    : (validProbability * 100).toFixed(2) + '%';
+
+  $('#mlBar').style.width = validProbability === null
+    ? '0%'
+    : (validProbability * 100) + '%';
+
+  const level = Number(data.level);
+  const verdictClass = [0, 1, 2].includes(level) ? `l${level}` : 'neutral';
+  const verdict = String(data.verdict || 'UNKNOWN').toUpperCase();
+
+  $('#badge').className = `badge ${verdictClass}`;
+  $('#badge').textContent = verdict;
+  $('#verdictText').className = verdictClass;
+  $('#verdictText').textContent = verdict;
+  $('#verdictHelp').textContent = level === 0
+    ? 'No blocking condition was triggered by the current policy.'
+    : level === 1
+      ? 'One or more signals warrant additional caution.'
+      : level === 2
+        ? 'The policy classified this URL as high risk.'
+        : 'The API returned an unrecognized verdict level.';
+
+  $('#shown').textContent = data.url || $('#url').value.trim();
+  $('#thresholdValue').textContent = Number.isFinite(Number(data.threshold))
+    ? (Number(data.threshold) * 100).toFixed(1) + '%'
+    : 'Unavailable';
+
+  const reasons = $('#reasons');
+  reasons.replaceChildren();
+
+  if (Array.isArray(data.reasons) && data.reasons.length) {
+    data.reasons.forEach(reason => reasons.appendChild(makeEl('li', null, reason)));
+  } else {
+    reasons.appendChild(makeEl('li', null, 'No explanation was returned by the policy.'));
+  }
+
+  const note = $('#scanNote');
+  note.hidden = !data.note;
+  note.textContent = data.note || '';
+
+  const signals = data.signals || {};
+  $('#signals').replaceChildren();
+
+  addCard('ML MODEL', [
+    ['Phishing score', validProbability === null ? 'Unavailable' : (validProbability * 100).toFixed(2) + '%'],
+    ['Features used', Object.keys(data.features || {}).length],
+    ['Model threshold', showValue(data.threshold)]
+  ]);
+
+  const dns = signals.dns;
+  if (dns && !dns.error) {
+    addCard('DNS RESOLUTION', [
+      ['Resolves', dns.resolves === true ? 'Yes' : dns.nxdomain ? 'NXDOMAIN' : dns.resolves === false ? 'No' : 'Unknown'],
+      ['IPv4 / IPv6', [...(dns.a || []), ...(dns.aaaa || [])].slice(0, 3).join(', ') || 'None reported'],
+      ['MX records', showValue(dns.mx_count)],
+      ['NS records', showValue(dns.ns_count)]
+    ]);
+  } else {
+    addCard('DNS RESOLUTION', [['Status', dns?.error || 'Not checked / unavailable']]);
+  }
+
+  
+const whois = signals.whois;
+ addCard('WHOIS / DOMAIN', [
+  ['Created', showValue(whois?.created)],
+  ['Domain age', whois?.age_days != null ? `${whois.age_days} days` : 'Unavailable'],
+  ['Expires', showValue(whois?.expires)],
+  ['Last updated', showValue(whois?.updated)],
+  ['Registrar', showValue(whois?.registrar)],
+  ['Registration status', whois?.not_registered ? 'Reported unregistered' : (whois?.available ? 'Registration data available' : 'Not confirmed')],
+  ['WHOIS status', whois?.error || 'Checked']
+]);
+
+  
+
+  const vt = signals.virustotal;
+  if (vt && vt.enabled !== false && !vt.error) {
+    addCard('VIRUSTOTAL', [
+      ['Record found', vt.found ? 'Yes' : 'No record'],
+      ['Malicious', showValue(vt.malicious)],
+      ['Suspicious', showValue(vt.suspicious)],
+      ['Harmless', showValue(vt.harmless)]
+    ], vt.found ? 'Reputation data returned by the configured provider.' : 'No reputation record was returned; this does not prove the URL is safe.');
+  } else {
+    const status = vt?.enabled === false
+      ? 'API key not configured'
+      : vt?.error || 'Not checked / unavailable';
+    addCard('VIRUSTOTAL', [['Status', status]]);
+  }
+
+  const table = $('#feat');
+  table.replaceChildren();
+  const header = makeEl('tr');
+  header.appendChild(makeEl('th', null, 'Feature'));
+  header.appendChild(makeEl('th', null, 'Value'));
+  table.appendChild(header);
+
+  Object.entries(data.features || {}).forEach(([key, value]) => {
+    const row = makeEl('tr');
+    row.appendChild(makeEl('td', null, key));
+    const formatted = typeof value === 'number'
+      ? (Number.isInteger(value) ? String(value) : value.toFixed(4))
+      : showValue(value);
+    row.appendChild(makeEl('td', null, formatted));
+    table.appendChild(row);
+  });
+
+  const timing = $('#timing');
+  timing.replaceChildren();
+  const times = data.timing_ms || {};
+  [['ML', times.ml], ['External checks', times.external], ['Total', times.total]]
+    .forEach(([label, value]) => {
+      if (value !== undefined && value !== null && Number.isFinite(Number(value))) {
+        timing.appendChild(makeEl('span', null, `${label}: ${Number(value).toFixed(1)} ms`));
+      }
+    });
+}
+
+</script>
+</body>
+</html>
